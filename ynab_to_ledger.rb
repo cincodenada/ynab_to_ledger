@@ -31,32 +31,39 @@ def main
 end
 
 def ledger_entry(row)
-  inflow = blank_if_zero(row["Inflow"])
-  outflow = blank_if_zero(row["Outflow"])
+  if row["Category"] == "To be Budgeted"
+    category = "Income"
+  elsif row["Payee"] == "Starting Balance"
+    category = "Equity:Starting Balances"
+  elsif row["Payee"].include?("Transfer :")
+    account = row["Payee"].split(":").last.strip
+    category = translate_account(account)
+  else
+    category = "Expenses:" + row["Category Group"] + ':' + row["Category"]
+  end
+
+  return if category == ""
+
+  if row.has_key? "Budgeted"
+    inflow = row["Budgeted"]
+    dest = category
+  else
+    inflow = blank_if_zero(row["Inflow"])
+    outflow = blank_if_zero(row["Outflow"])
+    dest = translate_account(row["Account"])
+    source = category
+  end
 
   return if inflow == "" && outflow == ""
 
   month, day, year = row["Date"].split("/")
-
-  if row["Category"] == "To be Budgeted"
-    source = "Income"
-  elsif row["Payee"] == "Starting Balance"
-    source = "Equity:Starting Balances"
-  elsif row["Payee"].include?("Transfer :")
-    account = row["Payee"].split(":").last.strip
-    source = translate_account(account)
-  else
-    source = "Expenses:" + row["Category Group"] + ':' + row["Category"]
-  end
-
-  return if source == ""
 
   suffix = row["Memo"] == "" ? "" : " ;" + row["Memo"]
 
   <<END
 #{year}/#{month}/#{day} #{row["Payee"]}#{suffix}
     #{source}  #{outflow}
-    #{translate_account(row["Account"])}  #{inflow}
+    #{dest}  #{inflow}
 END
 end
 
